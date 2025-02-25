@@ -1,0 +1,5 @@
+**/context
+**/export
+**.log
+ansible.cfg
+inventory.ini

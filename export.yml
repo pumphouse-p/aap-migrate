@@ -1,0 +1,48 @@
+---
+- name: Export objects from source cluster
+  hosts: source_cluster
+  become: false
+  gather_facts: false
+  vars:
+    controller_hostname: "{{ controller_hostname_src }}"
+    controller_password: "{{ controller_password_src }}"
+    controller_username: "{{ controller_username_src }}"
+    controller_validate_certs: "{{ controller_validate_certs_src | default(false) }}"
+
+  pre_tasks:
+    - name: Setup authentication
+      block:
+        - name: Grab an auth token
+          ansible.builtin.uri:
+            url: https://{{ controller_hostname }}/api/v2/tokens/
+            user: "{{ controller_username }}"
+            password: "{{ controller_password }}"
+            method: POST
+            force_basic_auth: true
+            validate_certs: "{{ controller_validate_certs }}"
+            status_code: 201
+          register: r_authtoken
+
+        - name: Set facts with token
+          ansible.builtin.set_fact:
+            controller_oauthtoken: "{{ r_authtoken.json.token }}"
+            controller_oauthtoken_url: "{{ r_authtoken.json.url }}"
+      no_log: true
+      when: controller_oauthtoken is not defined
+      tags:
+        - always
+
+  roles:
+    - name: infra.controller_configuration.filetree_create
+
+  post_tasks:
+    - name: Delete auth token
+      ansible.builtin.uri:
+        url: https://{{ controller_hostname }}{{ controller_oauthtoken_url }}
+        user: "{{ controller_username }}"
+        password: "{{ controller_password }}"
+        method: DELETE
+        force_basic_auth: true
+        validate_certs: "{{ controller_validate_certs }}"
+        status_code: 204
+      when: controller_oauthtoken_url is defined

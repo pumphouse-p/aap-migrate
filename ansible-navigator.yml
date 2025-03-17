@@ -1,0 +1,16 @@
+---
+ansible-navigator:
+  app: run
+  mode: interactive
+  playbook-artifact:
+    enable: false
+  color:
+    enable: true
+
+  execution-environment:
+    container-engine: podman
+    enabled: true
+    volume-mounts:
+      - dest: /tmp/export
+        src: ./export
+        options: Z

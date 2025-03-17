@@ -4,10 +4,16 @@
   become: false
   gather_facts: false
   vars:
-    controller_hostname: "{{ controller_hostname_src }}"
-    controller_password: "{{ controller_password_src }}"
-    controller_username: "{{ controller_username_src }}"
-    controller_validate_certs: "{{ controller_validate_certs_src | default(false) }}"
+    input_tag:
+      - inventory
+      - inventory_sources
+      - credentials
+      - credential_types
+      - organizations
+      - projects
+      - job_templates
+      - workflow_job_templates
+      - schedules
 
   pre_tasks:
     - name: Setup authentication

@@ -1,0 +1,103 @@
+---
+- name: Import objects to destination cluster
+  hosts: dest_cluster
+  become: false
+  gather_facts: false
+  vars:
+    filetree_controller_settings: "{{ output_path }}/settings"
+    filetree_controller_organizations: "{{ output_path }}/organizations"
+    filetree_controller_labels: "{{ output_path }}/{{ orgs }}/labels/"
+    filetree_controller_user_accounts: "{{ output_path }}/{{ orgs }}/users/"
+    filetree_controller_teams: "{{ output_path }}/{{ orgs }}/teams/"
+    filetree_controller_credential_types: "{{ output_path }}/credential_types/"
+    filetree_controller_credentials: "{{ output_path }}/{{ orgs }}/credentials/"
+    filetree_controller_credential_input_sources: "{{ output_path }}/{{ orgs }}/credential_input_sources/"
+    filetree_controller_notifications: "{{ output_path }}/{{ orgs }}/notification_templates/"
+    filetree_controller_projects: "{{ output_path }}/{{ orgs }}/projects/"
+    filetree_controller_execution_environments: "{{ output_path }}/execution_environments/"
+    filetree_controller_applications: "{{ output_path }}/{{ orgs }}/applications/"
+    filetree_controller_inventories: "{{ output_path }}/{{ orgs }}/inventories/"
+    filetree_controller_inventory_sources: "{{ output_path }}/{{ orgs }}/inventories/"
+    filetree_controller_instance_groups: "{{ output_path }}/{{ orgs }}/instance_groups/"
+    filetree_controller_hosts: "{{ output_path }}/{{ orgs }}/inventories/"
+    filetree_controller_groups: "{{ output_path }}/{{ orgs }}/inventories/"
+    filetree_controller_templates: "{{ output_path }}/{{ orgs }}/job_templates/"
+    filetree_controller_workflow_job_templates: "{{ output_path }}/{{ orgs }}/workflow_job_templates/"
+    filetree_controller_schedules: "{{ output_path }}/{{ orgs }}/schedules/"
+    filetree_controller_roles: "{{ output_path }}/{{ orgs }}/roles/"
+    controller_configuration_dispatcher_roles:
+      - {role: organizations, var: controller_organizations, tags: organizations}
+      - {role: credential_types, var: controller_credential_types, tags: credential_types}
+      - {role: credentials, var: controller_credentials, tags: credentials}
+      - {role: inventories, var: controller_inventories, tags: inventories}
+      - {role: inventory_sources, var: controller_inventory_sources, tags: inventory_sources}
+      - {role: job_templates, var: controller_templates, tags: job_templates}
+      - {role: workflow_job_templates, var: controller_workflows, tags: workflow_job_templates}
+      - {role: schedules, var: controller_schedules, tags: schedules}
+
+  pre_tasks:
+    - name: Setup authentication
+      block:
+        - name: Grab an auth token
+          ansible.builtin.uri:
+            url: https://{{ controller_hostname }}/api/v2/tokens/
+            user: "{{ controller_username }}"
+            password: "{{ controller_password }}"
+            method: POST
+            force_basic_auth: true
+            validate_certs: "{{ controller_validate_certs }}"
+            status_code: 201
+          register: r_authtoken
+
+        - name: Set facts with token
+          ansible.builtin.set_fact:
+            controller_oauthtoken: "{{ r_authtoken.json.token }}"
+            controller_oauthtoken_url: "{{ r_authtoken.json.url }}"
+      no_log: true
+      when: controller_oauthtoken is not defined
+      tags:
+        - always
+
+    - block:
+        - name: Include tasks to load galaxy credentials and organizations
+          ansible.builtin.include_role:
+            name: infra.controller_configuration.filetree_read
+            tasks_from: "{{ create_orgs_credentials }}"
+          loop:
+            - organizations.yml
+            - credentials.yml
+          loop_control:
+            loop_var: create_orgs_credentials
+
+        - name: Include tasks to add galaxy credentials to organizations
+          ansible.builtin.include_role:
+            name: infra.controller_configuration.dispatch
+            apply:
+              tags:
+                - organizations
+                - credentials
+          vars:
+            assign_galaxy_credentials_to_org: false
+            controller_configuration_dispatcher_roles:
+              - role: organizations
+                var: controller_organizations
+                tags: organizations
+              - role: credentials
+                var: controller_credentials
+                tags: credentials
+
+  roles:
+    - name: infra.controller_configuration.filetree_read
+    - name: infra.controller_configuration.dispatch
+
+  post_tasks:
+    - name: Delete auth token
+      ansible.builtin.uri:
+        url: https://{{ controller_hostname }}{{ controller_oauthtoken_url }}
+        user: "{{ controller_username }}"
+        password: "{{ controller_password }}"
+        method: DELETE
+        force_basic_auth: true
+        validate_certs: "{{ controller_validate_certs }}"
+        status_code: 204
+      when: controller_oauthtoken_url is defined

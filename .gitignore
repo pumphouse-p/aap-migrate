@@ -1,5 +1,6 @@
 **/context
-**/export
+export/**
 **.log
 ansible.cfg
 inventory.ini
+.venv

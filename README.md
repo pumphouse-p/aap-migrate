@@ -3,6 +3,10 @@
 This repository contains an examples of how you can migrate objects from one
 Ansible Automation Platform environment to another.
 
+## Workflow
+
+![workflow](img/flow.png "Workflow")
+
 ## Quick-Start
 
 Clone this repository.
@@ -76,10 +80,6 @@ Push objects owned by the organization named `$ORG_NAME` out to destination clus
 ```bash
 ansible-navigator run push.yml --eei example.com/user/controller:tag -i inventory.ini -e orgs=$ORG_NAME
 ```
-
-## Workflow
-
-![workflow](img/flow.png "Workflow")
 
 ## Repo Contents
 
